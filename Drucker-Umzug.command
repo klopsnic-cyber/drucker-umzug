@@ -48,31 +48,55 @@ do_export() {
     echo "  Kopiere Treiber aus $PRINTERS_DIR ..."
     ditto "$PRINTERS_DIR" "$out/Library-Printers" || echo "  WARNUNG: Treiber nicht vollständig kopiert."
   fi
-  # Ordner dem Benutzer geben, damit er ihn auf Stick/AirDrop kopieren kann
-  [ -n "${SUDO_USER:-}" ] && chown -R "$SUDO_USER" "$out"
+  # Zip für den Transport: USB-Sticks mit FAT/exFAT verlieren sonst Symlinks in Treiber-Bundles
+  ditto -c -k --sequesterRsrc --keepParent "$out" "$out.zip" || echo "  WARNUNG: Zip konnte nicht erstellt werden."
+  # dem Benutzer geben, damit er es auf Stick/AirDrop kopieren kann
+  [ -n "${SUDO_USER:-}" ] && chown -R "$SUDO_USER" "$out" "$out.zip" 2>/dev/null
 
   echo
   echo "Export fertig: $count Drucker in $out"
-  echo "Diesen Ordner auf den neuen Mac bringen und dort Import starten."
+  echo "Bitte die Datei $out.zip auf den neuen Mac bringen und dort Import starten."
+}
+
+# Kopiert aus $1 nach $2 nur Einträge, die ganz fehlen. In vorhandene Ordner wird nur
+# hinabgestiegen, wenn sie kein Bundle sind (Name ohne Punkt, z. B. "Brother", "PPDs"),
+# damit nie Dateien in ein vorhandenes, signiertes Bundle gemischt werden.
+copy_missing() {
+  local s="$1" d="$2" e
+  for e in "$s"/* "$s"/.[!.]*; do
+    [ -e "$e" ] || [ -L "$e" ] || continue
+    local name="${e##*/}" t="$d/${e##*/}"
+    if [ ! -e "$t" ] && [ ! -L "$t" ]; then
+      echo "  + ${t#"$PRINTERS_DIR"/}"
+      if [ "$apply" = 1 ]; then
+        mkdir -p "$d"
+        # cp -R: Symlinks bleiben Links, xattrs/Signaturen bleiben; ohne -p gehören neue
+        # Dateien root (cupsd verlangt das für Filter). ditto würde Symlinks auflösen.
+        cp -R "$e" "$t" || echo "    WARNUNG: konnte nicht kopiert werden."
+        xattr -drs com.apple.quarantine "$t" 2>/dev/null
+      fi
+    elif [ -d "$e" ] && [ ! -L "$e" ] && [ -d "$t" ] && [ ! -L "$t" ] && [ "${name%.*}" = "$name" ]; then
+      copy_missing "$e" "$t"
+    fi
+  done
 }
 
 do_import() {
   src="$1"; apply="$2"
+  case "$src" in
+    *.zip) [ -f "$src" ] || die "$src nicht gefunden."
+           tmp=$(mktemp -d) || die "Kein Temp-Ordner."
+           ditto -x -k "$src" "$tmp" || die "Zip konnte nicht entpackt werden."
+           for d in "$tmp"/*/manifest.tsv; do src="${d%/manifest.tsv}"; done ;;
+  esac
   [ -f "$src/manifest.tsv" ] || die "$src/manifest.tsv fehlt. Ist das ein Export-Ordner?"
   [ "$apply" = 1 ] && need_root
   if [ "$apply" = 1 ]; then echo "== IMPORT (Änderungen werden ausgeführt) =="; else echo "== VORSCHAU (es wird nichts geändert) =="; fi
 
-  # 1. Treiber: nur fehlende Dateien kopieren
+  # 1. Treiber: nur ganz fehlende Bundles/Dateien kopieren, vorhandene bleiben unangetastet
   if [ -d "$src/Library-Printers" ]; then
-    missing=$(cd "$src/Library-Printers" && find . \( -type f -o -type l \) | while read -r f; do
-      [ -e "$PRINTERS_DIR/$f" ] || [ -L "$PRINTERS_DIR/$f" ] || echo "$f"; done | wc -l | tr -d ' ')
-    echo "Treiber: $missing Dateien fehlen auf diesem Mac und werden ergänzt (vorhandene bleiben unangetastet)."
-    if [ "$apply" = 1 ] && [ "$missing" != 0 ]; then
-      xattr -dr com.apple.quarantine "$src/Library-Printers" 2>/dev/null
-      mkdir -p "$PRINTERS_DIR"
-      # -n: nie überschreiben; ohne -p: neue Dateien gehören root (cupsd verlangt das für Filter)
-      cp -Rn "$src/Library-Printers/" "$PRINTERS_DIR" || echo "  WARNUNG: Nicht alle Treiberdateien konnten kopiert werden."
-    fi
+    echo "Treiber, die auf diesem Mac fehlen und ergänzt werden:"
+    copy_missing "$src/Library-Printers" "$PRINTERS_DIR"
   fi
 
   # 2. Druckerwarteschlangen anlegen
@@ -119,10 +143,10 @@ do_import() {
 }
 
 ask_dir() {
-  default="$HOME/Desktop/Drucker-Export"
-  echo "Export-Ordner ins Fenster ziehen und Enter drücken (leer = $default):" >&2
+  default=$(ls -td "$HOME"/Desktop/Drucker-Export*.zip "$HOME"/Desktop/Drucker-Export* 2>/dev/null | head -1)
+  echo "Export (Zip oder Ordner) ins Fenster ziehen und Enter drücken (leer = ${default:-nichts gefunden}):" >&2
   read -r p
-  p="${p//\\ / }"; p="${p%"${p##*[! ]}"}"; p="${p#\'}"; p="${p%\'}"   # Drag&Drop-Escapes entfernen
+  p="${p%"${p##*[! ]}"}"; p="${p//\\/}"; p="${p#\'}"; p="${p%\'}"   # Drag&Drop-Escapes entfernen
   echo "${p:-$default}"
 }
 
