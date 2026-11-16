@@ -4,7 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 V=$(cat VERSION)
 rm -rf dist && mkdir -p dist/pkg
-sed "s/__VERSION__/$V/" app/main.applescript > dist/main.applescript
+ES=$(shasum -a 256 Drucker-Umzug.command | cut -d' ' -f1)   # Engine-Integrität: App prüft diesen Hash vor jedem Aufruf
+sed -e "s/__VERSION__/$V/" -e "s/__ENGINE_SHA__/$ES/" app/main.applescript > dist/main.applescript
 osacompile -o dist/pkg/Drucker-Umzug.app dist/main.applescript
 cp Drucker-Umzug.command dist/pkg/Drucker-Umzug.app/Contents/Resources/
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $V" dist/pkg/Drucker-Umzug.app/Contents/Info.plist 2>/dev/null \
