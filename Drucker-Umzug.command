@@ -51,7 +51,8 @@ do_export() {
   # Zip für den Transport: USB-Sticks mit FAT/exFAT verlieren sonst Symlinks in Treiber-Bundles
   ditto -c -k --sequesterRsrc --keepParent "$out" "$out.zip" || echo "  WARNUNG: Zip konnte nicht erstellt werden."
   # dem Benutzer geben, damit er es auf Stick/AirDrop kopieren kann
-  [ -n "${SUDO_USER:-}" ] && chown -R "$SUDO_USER" "$out" "$out.zip" 2>/dev/null
+  owner="${SUDO_USER:-${EXPORT_OWNER:-}}"   # EXPORT_OWNER setzt die App (Admin-Rechte ohne sudo)
+  [ -n "$owner" ] && chown -R "$owner" "$out" "$out.zip" 2>/dev/null
 
   echo
   echo "Export fertig: $count Drucker in $out"
@@ -96,7 +97,8 @@ do_import() {
   # 1. Treiber: nur ganz fehlende Bundles/Dateien kopieren, vorhandene bleiben unangetastet
   if [ -d "$src/Library-Printers" ]; then
     echo "Treiber, die auf diesem Mac fehlen und ergänzt werden:"
-    copy_missing "$src/Library-Printers" "$PRINTERS_DIR"
+    drv_out=$(copy_missing "$src/Library-Printers" "$PRINTERS_DIR")
+    echo "${drv_out:-  (keine – alle Treiber sind schon vorhanden)}"
   fi
 
   # 2. Druckerwarteschlangen anlegen
@@ -138,7 +140,7 @@ do_import() {
     echo "Fertig: $ok angelegt, $fail fehlgeschlagen, $skip übersprungen."
     echo "Bitte jeden Drucker mit einer Testseite prüfen (Systemeinstellungen > Drucker & Scanner)."
   else
-    echo "Vorschau fertig ($skip würden übersprungen). Zum Ausführen: Import mit --apply bzw. Menüpunkt 3."
+    echo "Vorschau fertig ($skip würden übersprungen). Zum Ausführen: „Drucker anlegen“ in der App bzw. --apply / Menüpunkt 3."
   fi
 }
 
