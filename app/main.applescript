@@ -1,5 +1,8 @@
 -- Drucker-Umzug: Oberfläche mit zwei Knöpfen. Die eigentliche Arbeit macht
 -- Resources/Drucker-Umzug.command (getestet über tests/run-tests.sh).
+use AppleScript version "2.4" -- macOS 10.10+, nötig für das native Startfenster
+use framework "AppKit"
+use scripting additions
 property appVersion : "__VERSION__"
 property engineSha : "__ENGINE_SHA__"
 property repo : "klopsnic-cyber/drucker-umzug"
@@ -7,7 +10,7 @@ property repo : "klopsnic-cyber/drucker-umzug"
 on run
 	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	checkUpdate()
-	set choice to button returned of (display dialog "Drucker, Treiber und Einstellungen von einem Mac auf einen anderen übertragen." & return & return & "Export: auf dem ALTEN Mac" & return & "Import: auf dem NEUEN Mac" & return & return & "Die App wird auf beiden Macs benötigt." & return & "Es wird nie ein Drucker gelöscht oder etwas überschrieben." buttons {"Abbrechen", "Import", "Export"} cancel button "Abbrechen" with title "Drucker-Umzug " & appVersion with icon note) -- Abbrechen hier: still beenden
+	set choice to startDialog() -- Abbrechen hier: still beenden
 	try
 		if choice is "Export" then
 			doExport()
@@ -16,7 +19,7 @@ on run
 		end if
 	on error msg number n
 		if n is -128 then
-			display dialog "Abgebrochen – es wurde nichts verändert." buttons {"OK"} default button "OK" with title "Drucker-Umzug" with icon note
+			display dialog "Abgebrochen – es wurde nichts verändert." buttons {"OK"} default button "OK" with title "Drucker-Umzug" with icon (path to resource "applet.icns")
 		else
 			if msg is "" then set msg to "Unbekannter Fehler."
 			if length of msg > 1500 then set msg to (text 1 thru 1500 of msg) & "…"
@@ -25,6 +28,42 @@ on run
 	end try
 	end timeout
 end run
+
+-- Natives Startfenster (NSAlert): Logo, Erklärung, oranger kursiver Hinweis.
+on startDialog()
+	set ca to current application
+	set a to ca's NSAlert's alloc()'s init()
+	a's setMessageText:("Drucker-Umzug")
+	a's setInformativeText:("Nehmen Sie Ihre Drucker mit auf den neuen Mac – samt Treibern und Einstellungen." & return & return & "Auf dem alten Mac: „Exportieren“ sichert alles in eine Datei." & return & "Auf dem neuen Mac: „Importieren“ richtet die Drucker aus dieser Datei ein." & return & return & "Die App wird auf beiden Macs gebraucht." & return & return & "Version " & appVersion)
+	a's setIcon:(ca's NSImage's alloc()'s initWithContentsOfFile:(POSIX path of (path to resource "applet.icns")))
+	a's addButtonWithTitle:"Exportieren"
+	a's addButtonWithTitle:"Importieren"
+	((a's addButtonWithTitle:"Abbrechen")'s setKeyEquivalent:(character id 27))
+	set f to ca's NSFontManager's sharedFontManager()'s convertFont:(ca's NSFont's systemFontOfSize:12) toHaveTrait:(ca's NSItalicFontMask)
+	set attrs to ca's NSDictionary's dictionaryWithObjects:{f, ca's NSColor's systemOrangeColor()} forKeys:{ca's NSFontAttributeName, ca's NSForegroundColorAttributeName}
+	set lbl to ca's NSTextField's wrappingLabelWithString:""
+	lbl's setAttributedStringValue:(ca's NSAttributedString's alloc()'s initWithString:"Ihre vorhandenen Drucker bleiben unangetastet – es wird nichts gelöscht und nichts überschrieben." attributes:attrs)
+	lbl's setPreferredMaxLayoutWidth:330
+	lbl's setFrameSize:{330, height of (lbl's fittingSize() as record)}
+	a's setAccessoryView:lbl
+	ca's NSApp's activateIgnoringOtherApps:true
+	-- auf dem Bildschirm mit dem Mauszeiger zentrieren (sonst landet es evtl. auf einem anderen Monitor)
+	a's layout()
+	set w to a's |window|()
+	set m to ca's NSEvent's mouseLocation()
+	set wf to (w's frame()) as list
+	repeat with s in (ca's NSScreen's screens()) as list
+		set f to (s's frame()) as list
+		set {sx, sy, sw, sh} to {item 1 of item 1 of f, item 2 of item 1 of f, item 1 of item 2 of f, item 2 of item 2 of f}
+		if (x of m) ≥ sx and (x of m) < sx + sw and (y of m) ≥ sy and (y of m) < sy + sh then
+			w's setFrameOrigin:{sx + (sw - (item 1 of item 2 of wf)) / 2, sy + (sh - (item 2 of item 2 of wf)) * 0.6}
+		end if
+	end repeat
+	set r to (a's runModal()) as integer
+	if r is 1000 then return "Export"
+	if r is 1001 then return "Import"
+	error number -128
+end startDialog
 
 on doExport()
 	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
@@ -94,7 +133,7 @@ on show(txt, ttl, bl)
 		set bl to {item 1 of bl, "Bericht öffnen", item 2 of bl}
 	end if
 	repeat
-		set b to button returned of (display dialog shown buttons bl default button (item -1 of bl) with title ttl)
+		set b to button returned of (display dialog shown buttons bl default button (item -1 of bl) with title ttl with icon (path to resource "applet.icns"))
 		if b is "Bericht öffnen" then
 			set p to (do shell script "mktemp -d") & "/Drucker-Umzug-Bericht.txt"
 			do shell script "printf '%s\\n' " & quoted form of txt & " > " & quoted form of p & " && open -e " & quoted form of p
@@ -122,7 +161,7 @@ on checkUpdate()
 	set appPath to POSIX path of (path to me)
 	if appPath ends with "/" then set appPath to text 1 thru -2 of appPath
 	if appPath contains "/AppTranslocation/" then return -- schreibgeschützt gestartet, Update sinnlos
-	set b to button returned of (display dialog "Version " & latest & " ist verfügbar (installiert: " & appVersion & ")." buttons {"Später", "Jetzt aktualisieren"} default button "Jetzt aktualisieren" with title "Update" with icon note)
+	set b to button returned of (display dialog "Version " & latest & " ist verfügbar (installiert: " & appVersion & ")." buttons {"Später", "Jetzt aktualisieren"} default button "Jetzt aktualisieren" with title "Update" with icon (path to resource "applet.icns"))
 	if b is "Später" then return
 	-- Phase 1 ohne Admin-Rechte: laden, Prüfsumme und Version prüfen, entpacken
 	set dl to "set -e; t=$(mktemp -d); trap 'rc=$?; [ $rc -eq 0 ] || rm -rf \"$t\"' EXIT; " & ¬

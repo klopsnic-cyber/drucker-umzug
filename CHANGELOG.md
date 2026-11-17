@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 – 2026-11-17
+- Eigenes Logo (App-Symbol und alle Dialoge)
+- Neues natives Startfenster mit überarbeiteten Texten; Hinweis „nichts wird gelöscht“ in Orange kursiv
+- Startfenster erscheint auf dem Bildschirm mit dem Mauszeiger
+- Mindestversion jetzt macOS 10.10 (für noch ältere Macs: Drucker-Umzug.command)
+
 ## 1.1.1 – 2026-11-17
 - Fix: Offene Dialoge führten nach 2 Minuten zum Fehler „AppleEvent lieferte eine Zeitüberschreitung (-1712)“
 

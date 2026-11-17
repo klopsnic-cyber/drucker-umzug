@@ -51,6 +51,8 @@ sudo ./Drucker-Umzug.command import <ordner> --apply    # ausführen
 
 ## Grenzen
 
+- Die App braucht macOS 10.10 oder neuer. Auf noch älteren Macs `Drucker-Umzug.command` per Terminal nutzen.
+
 - Drucker mit eigenen Herstellertreibern und Hintergrunddiensten: Bitte den Installer des Herstellers verwenden. Das Skript kann diese nicht vollständig übertragen.
 - Drucker ohne PPD-Datei werden nur übernommen, wenn sie IPP/AirPrint unterstützen (`ipp://`, `ipps://`, `dnssd://`). Alle anderen werden übersprungen.
 - USB-Drucker müssen beim Import angeschlossen sein.

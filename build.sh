@@ -8,6 +8,11 @@ ES=$(shasum -a 256 Drucker-Umzug.command | cut -d' ' -f1)   # Engine-Integrität
 sed -e "s/__VERSION__/$V/" -e "s/__ENGINE_SHA__/$ES/" app/main.applescript > dist/main.applescript
 osacompile -o dist/pkg/Drucker-Umzug.app dist/main.applescript
 cp Drucker-Umzug.command dist/pkg/Drucker-Umzug.app/Contents/Resources/
+# eigenes Logo statt Skript-Symbol (Assets.car hätte Vorrang, daher weg)
+cp app/logo.icns dist/pkg/Drucker-Umzug.app/Contents/Resources/applet.icns
+rm -f dist/pkg/Drucker-Umzug.app/Contents/Resources/Assets.car
+/usr/libexec/PlistBuddy -c "Delete :LSMinimumSystemVersionByArchitecture" -c "Add :LSMinimumSystemVersion string 10.10" dist/pkg/Drucker-Umzug.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" dist/pkg/Drucker-Umzug.app/Contents/Info.plist 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $V" dist/pkg/Drucker-Umzug.app/Contents/Info.plist 2>/dev/null \
   || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $V" dist/pkg/Drucker-Umzug.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string de.infralatis.druckerumzug" dist/pkg/Drucker-Umzug.app/Contents/Info.plist 2>/dev/null || true
