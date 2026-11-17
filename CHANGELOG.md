@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1 – 2026-11-17
+- Fix: Offene Dialoge führten nach 2 Minuten zum Fehler „AppleEvent lieferte eine Zeitüberschreitung (-1712)“
+
 ## 1.1.0 – 2026-11-16
 - Review-Team-Befunde umgesetzt: keine Server-Schlüssel/Passwörter im Export, Zugangsdaten maskiert
 - Druckeroptionen, Standarddrucker, Klassen, pausierte Drucker werden übernommen

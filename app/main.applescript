@@ -5,6 +5,7 @@ property engineSha : "__ENGINE_SHA__"
 property repo : "klopsnic-cyber/drucker-umzug"
 
 on run
+	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	checkUpdate()
 	set choice to button returned of (display dialog "Drucker, Treiber und Einstellungen von einem Mac auf einen anderen übertragen." & return & return & "Export: auf dem ALTEN Mac" & return & "Import: auf dem NEUEN Mac" & return & return & "Die App wird auf beiden Macs benötigt." & return & "Es wird nie ein Drucker gelöscht oder etwas überschrieben." buttons {"Abbrechen", "Import", "Export"} cancel button "Abbrechen" with title "Drucker-Umzug " & appVersion with icon note) -- Abbrechen hier: still beenden
 	try
@@ -22,17 +23,21 @@ on run
 			display dialog msg buttons {"OK"} default button "OK" with title "Drucker-Umzug" with icon stop
 		end if
 	end try
+	end timeout
 end run
 
 on doExport()
+	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	set nm to "Drucker-Export-" & (do shell script "date +%Y%m%d-%H%M%S")
 	set out to (POSIX path of (path to desktop)) & nm
 	set res to runEngine("EXPORT_OWNER=" & quoted form of (short user name of (system info)) & " ", "export " & quoted form of out, true, "Drucker werden gesichert …")
 	set b to show("Fertig! Die Datei " & nm & ".zip liegt auf dem Schreibtisch. Bringen Sie sie per USB-Stick oder AirDrop auf den neuen Mac und klicken Sie dort auf Import." & return & return & res, "Export fertig", {"OK", "Im Finder zeigen"})
 	if b is "Im Finder zeigen" then do shell script "open -R " & quoted form of (out & ".zip")
+	end timeout
 end doExport
 
 on doImport()
+	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	set f to POSIX path of (choose file with prompt "Die Export-Datei (Drucker-Export-….zip) vom alten Mac auswählen:" of type {"zip", "public.zip-archive"} default location (path to desktop))
 	-- Vorschau ohne Admin-Rechte, ändert nichts
 	set preview to runEngine("", "import " & quoted form of f, false, "Export-Datei wird gelesen …")
@@ -40,10 +45,12 @@ on doImport()
 	set res to runEngine("", "import " & quoted form of f & " --apply", true, "Drucker werden eingerichtet …")
 	set b to show(res, "Import fertig", {"OK", "Drucker & Scanner öffnen"})
 	if b is "Drucker & Scanner öffnen" then do shell script "open 'x-apple.systempreferences:com.apple.Print-Scanner-Settings.extension'"
+	end timeout
 end doImport
 
 -- Engine prüfen (Hash aus dem Build) und mit Fortschrittsanzeige starten. Fehler: Engine-Meldung im Fehlertext.
 on runEngine(pre, args, admin, desc)
+	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	set e to quoted form of (POSIX path of (path to resource "Drucker-Umzug.command"))
 	if (do shell script "shasum -a 256 " & e & " | cut -d' ' -f1") is not engineSha then error "Die App ist beschädigt oder verändert – bitte neu herunterladen." number 1
 	set cmd to "DU_GUI=1 " & pre & e & " " & args & " 2>&1"
@@ -63,18 +70,22 @@ on runEngine(pre, args, admin, desc)
 	end try
 	resetProgress()
 	return r
+	end timeout
 end runEngine
 
 on resetProgress()
+	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	set progress total steps to 0
 	set progress completed steps to 0
 	set progress description to ""
 	set progress additional description to ""
+	end timeout
 end resetProgress
 
 -- Text anzeigen; ab 25 Zeilen gekürzt + Knopf "Bericht öffnen" (volle Ausgabe im Texteditor).
 -- bl = {links, rechts(Standard)}; "Abbrechen" links beendet mit -128. Gibt den Knopfnamen zurück.
 on show(txt, ttl, bl)
+	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	set shown to txt
 	if (count of paragraphs of txt) > 25 then
 		set AppleScript's text item delimiters to return
@@ -92,10 +103,12 @@ on show(txt, ttl, bl)
 			return b
 		end if
 	end repeat
+	end timeout
 end show
 
 -- Updater: VERSION im Repo vergleichen, Zip laden, SHA256 + Version prüfen, mit Rollback austauschen.
 on checkUpdate()
+	with timeout of 86400 seconds -- Dialoge dürfen beliebig lange offen bleiben (Standard: 2 Min. → Fehler -1712)
 	set raw to "https://raw.githubusercontent.com/" & repo & "/main/"
 	try
 		set latest to do shell script "curl -fsSL --max-time 5 " & raw & "VERSION"
@@ -149,4 +162,5 @@ on checkUpdate()
 	display dialog "Update installiert – die App wird neu gestartet." buttons {"OK"} default button "OK" with title "Update" giving up after 4
 	do shell script "open -n " & quoted form of appPath
 	error number -128 -- diese (alte) Instanz beenden
+	end timeout
 end checkUpdate
